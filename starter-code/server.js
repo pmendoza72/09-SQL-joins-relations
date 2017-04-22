@@ -6,7 +6,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const PORT = process.env.PORT || 3000;
 const app = express();
-const conString = '';// TODO: Don't forget to set your own conString
+const conString = 'postgres://john:myPassword@localhost:5432/blog';// TODO: Don't forget to set your own conString
 const client = new pg.Client(conString);
 client.connect();
 client.on('error', function(error) {
@@ -24,7 +24,13 @@ app.get('/new', function(request, response) {
 app.get('/articles', function(request, response) {
   // REVIEW: This query will join the data together from our tables and send it back to the client.
   // TODO: Write a SQL query which joins all data from articles and authors tables on the author_id value of each
-  client.query(``)
+
+  client.query(`
+    SELECT *
+    FROM articles
+      JOIN authors
+      ON articles.author_id = authors.author_id
+    `)
   .then(function(result) {
     response.send(result.rows);
   })
@@ -40,8 +46,16 @@ app.post('/articles', function(request, response) {
   //       an array of values that it will replace in a 1-to-1 relationship
   //       with our placeholder values, signified with the syntax $1, $2, etc.
   client.query(
-    '',
-    []
+    `
+    INSERT INTO
+    articles(author, "authorUrl")
+    VALUES ($1, $2) ON CONFLICT DO NOTHING;
+    `,
+    [
+      request.body.author,
+      request.body.authorUrl
+    ]
+
   )
   .then(function() {
     // TODO: Write a SQL query to insert a new article, using a sub-query to
@@ -49,7 +63,13 @@ app.post('/articles', function(request, response) {
     // the functionality of a SELECT with VALUES when inserting new rows?
     // TODO: Add the required values from the request as data for the SQL query to interpolate
     client.query(
-      ``,
+      `
+      INSERT INTO
+      articles(author_id, title, category, "publishedOn", body)
+      SELECT author_id, $1, $2, $3, $4
+      FROM authors
+      WHERE author=$5;
+      `,
       []
     )
   })
